@@ -1,6 +1,7 @@
 {
     "require": {
-        "monolog/monolog": "^1.24"
+        "monolog/monolog": "^1.24",
+        "phpoffice/phpspreadsheet": "^1.6"
     },
 
     "autoload": {

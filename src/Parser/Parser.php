@@ -15,6 +15,7 @@ class Parser {
     protected $categoriesUrl = [];
     protected $request;
     protected $pagesCount;
+    protected $currentPage;
     private $logger;
 
     public function __construct($categoriesUrl = [])
@@ -26,7 +27,7 @@ class Parser {
         $this->logger->pushHandler(new StreamHandler(LOGS.'/parser.log', Logger::DEBUG));
     }
 
-    public function parse()
+    public function parse($forCat = '', $startFromPage = 0)
     {
         $this->logger->info('Parsing start...');
         foreach ($this->categoriesUrl as $categoryUrl) {
@@ -46,12 +47,29 @@ class Parser {
 
             $currentURL = $categoryUrl;
             
-            $pages = 1;
-            while (true) {
-                $this->logger->info('Page number: ' . $pages);
+            $this->currentPage = (!empty($forCat) && $forCat === $currentURL && (bool)$startFromPage) ? $startFromPage : 1;
 
-                $htmlPage = $this->request->makeRequest($currentURL . ($pages > 1 ? 'page=' . $pages . '/' : ''));
-                $pages++;
+            if (! isset($this->pagesCount)) {
+                $htmlPage = $this->request->makeRequest($currentURL);
+
+                $dom = new \DOMDocument();
+                $dom->loadHtml($htmlPage);
+                $xpath = new \DomXPath($dom);
+
+                $queryPagination = $xpath->query("//a[contains(@class, 'paginator-catalog-l-link')]");
+                if ($queryPagination->length > 0)
+                    $this->pagesCount = $queryPagination[$queryPagination->length - 1]->nodeValue;
+                
+                $this->logger->info('Category pages number succesfully computed. Pages count: ' . $this->pagesCount);                    
+                unset($htmlPage);
+            }
+
+            while ($this->currentPage <= $this->pagesCount) {
+                $this->logger->info('Page number: ' . $this->currentPage);
+                file_put_contents(LOGS.'/pageCounter.txt', $this->currentPage . PHP_EOL, FILE_APPEND);
+                $htmlPage = $this->request->makeRequest($currentURL . ($this->currentPage > 1 ? 'page=' . $this->currentPage . '/' : ''));
+                $this->currentPage = $this->currentPage + 1;
+
                 try {
                     if (! $htmlPage){
                         throw new \Exception('Cannot retrieve html page data');
@@ -78,6 +96,8 @@ class Parser {
                         $this->logger->info($e->getMessage());
                         exit();
                     }
+
+                    unset($items);
 
                     $product = $this->parseProductItem($htmlPageProduct, $item);
                     $this->logger->info('Product data succesfully parsed');
@@ -123,24 +143,8 @@ class Parser {
                             'link'       => $image
                         ]);
                     }
+                    unset($product);
                 }
-
-                if (! isset($this->pagesCount)) {
-                    $dom = new \DOMDocument();
-                    $dom->loadHtml($htmlPage);
-                    $xpath = new \DomXPath($dom);
-
-                    $queryPagination = $xpath->query("//a[contains(@class, 'paginator-catalog-l-link')]");
-                    if ($queryPagination->length > 0)
-                        $this->pagesCount = $queryPagination[$queryPagination->length - 1]->nodeValue;
-                    
-                    $this->logger->info('Category pages number succesfully computed. Pages count: ' . $this->pagesCount);                    
-
-                }
-
-                if ($pages == $this->pagesCount) {
-                    break;
-                }   
             }
             
             $this->logger->info('Parse category ended');
@@ -222,7 +226,7 @@ class Parser {
                 // Get product characteristics from table            
                 if ($queryProductAttributes->length > 0) {
                     foreach ($queryProductAttributes[0]->childNodes as $tr) {
-                        list($key, $value) = [StringHelper::enRussian($tr->childNodes[0]->nodeValue), preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', StringHelper::enRussian($tr->childNodes[2]->nodeValue))];
+                        list($key, $value) = [StringHelper::enRussian($tr->childNodes[0]->nodeValue), StringHelper::enRussian($tr->childNodes[2]->nodeValue)];
                         $product['attributes'][$key] = $value;
                     }
                 }
