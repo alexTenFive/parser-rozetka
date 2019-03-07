@@ -1,7 +1,19 @@
 {
+    "name": "alexTenFive/rozetkaParser",
+    "description": "Parse rozetka.ua and function to write xlsx and convert it to xml",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "alexTenFive",
+            "email": "flash.alex322@gmail.com"
+        }
+    ],
+
     "require": {
         "monolog/monolog": "^1.24",
-        "phpoffice/phpspreadsheet": "^1.6"
+        "phpoffice/phpspreadsheet": "^1.6",
+        "hassankhan/config": "^0.11.2"
     },
 
     "autoload": {

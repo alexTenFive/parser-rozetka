@@ -1,0 +1,20 @@
+{
+  "xml":{
+    "main": {
+      "name": "nodes",
+      "attrs": [
+        {
+          "name": "xmlns",
+          "value": "http://www.w3.org/1999/xhtml"
+        }
+      ]
+    },
+    "child": {
+      "name": "node",
+      "cdata": [
+        "Description"
+      ],
+      "attrs": []
+    }
+  }
+}

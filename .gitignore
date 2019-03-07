@@ -1,3 +1,8 @@
 vendor/
 logs/*
-result/*
+xlsx/*
+xml/*
+
+!logs/.gitkeep
+!xlsx/.gitkeep
+!xml/.gitkeep

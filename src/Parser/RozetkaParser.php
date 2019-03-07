@@ -1,6 +1,7 @@
 <?php
 namespace App\Parser;
 
+use App\Lib\Parser\Parser;
 use App\Http\Request;
 use App\Helpers\StringHelper;
 use App\db\Tools\DBQuery;
@@ -8,7 +9,7 @@ use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 
 
-class Parser {
+class RozetkaParser extends Parser {
     /**
      * Limit of pages for parsing.
      */
@@ -27,7 +28,7 @@ class Parser {
         $this->logger->pushHandler(new StreamHandler(LOGS.'/parser.log', Logger::DEBUG));
     }
 
-    public function parse($forCat = '', $startFromPage = 0)
+    public function parse($forCat = '', $startFromPage = 0): void
     {
         $this->logger->info('Parsing start...');
         foreach ($this->categoriesUrl as $categoryUrl) {
@@ -148,7 +149,6 @@ class Parser {
             }
             
             $this->logger->info('Parse category ended');
-            return $products;
         }
         $this->logger->info('Parse ended');
 

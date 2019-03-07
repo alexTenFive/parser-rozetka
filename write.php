@@ -1,18 +1,8 @@
 <?php
-define('ROOT', __DIR__);
-define('LOGS', __DIR__.'/logs');
-define('RESULTS', __DIR__.'/result');
 
-require_once(__DIR__.'/vendor/autoload.php');   
-
-use App\db\Tools\DBQuery as DBQuery;
+use App\db\Tools\DBQuery;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-
-error_reporting(-1);
-libxml_use_internal_errors(true);
-ini_set('display_errors', 'true');
-
 
 $filename = 'parsed_products.xlsx';
 $items = DBQuery::select('items');
@@ -27,14 +17,15 @@ $spreadsheet->setActiveSheetIndex(0)
         ->setCellValue('B1', 'SKU')
         ->setCellValue('C1', 'Цена')
         ->setCellValue('D1', 'Категория')
-        ->setCellValue('E1', 'Название')
-        ->setCellValue('F1', 'Описание')
-        ->setCellValue('G1', 'Продавец')
-        ->setCellValue('H1', 'В ТОПе?')
-        ->setCellValue('I1', 'Атрибуты');
+        ->setCellValue('E1', 'Картинки')
+        ->setCellValue('F1', 'Название')
+        ->setCellValue('G1', 'Описание')
+        ->setCellValue('H1', 'Продавец')
+        ->setCellValue('I1', 'В ТОПе?')
+        ->setCellValue('J1', 'Атрибуты');
 
         $attributesHeaders = [];
-        $attributesIndex = 'J';
+        $attributesIndex = 'K';
 
 foreach ($items as $id => $item) {
     $categoryName = DBQuery::select('categories', [['id', '=', $item['category_id']]], ['name'])[0]['name'];
@@ -44,7 +35,7 @@ foreach ($items as $id => $item) {
     $images = implode(';', $images);
 
     $attributes = json_decode($item['attributes'], true);
-    if ($attributes !== null || $attributes !== 'null') {
+    if ($attributes !== NULL) {
         foreach ($attributes as $key => $value) {
 
             if ($attributesIndex === 'Z') {
@@ -70,12 +61,13 @@ foreach ($items as $id => $item) {
     ->setCellValue('B' . $rowNum, (string)$item['sku'])
     ->setCellValue('C' . $rowNum, (string)$item['price'])
     ->setCellValue('D' . $rowNum, (string)$categoryName)
-    ->setCellValue('E' . $rowNum, (string)$item['name'])
-    ->setCellValue('F' . $rowNum, (string)$item['description'])
-    ->setCellValue('G' . $rowNum, (string)$item['seller'])
-    ->setCellValue('H' . $rowNum, (string)$item['isOnTop']);    
+    ->setCellValue('E' . $rowNum, (string)$images)
+    ->setCellValue('F' . $rowNum, (string)$item['name'])
+    ->setCellValue('G' . $rowNum, (string)$item['description'])
+    ->setCellValue('H' . $rowNum, (string)$item['seller'])
+    ->setCellValue('I' . $rowNum, (string)$item['isOnTop']); 
 
-    if ($attributes !== null || $attributes !== 'null') {
+    if ($attributes !== NULL) {
         foreach ($attributes as $key => $value) {
             $spreadsheet->getActiveSheet()->setCellValue($attributesHeaders[$key] . $rowNum, (string)$value);
         }
@@ -90,4 +82,4 @@ foreach ($attributesHeaders as $value => $column) {
 }
 
 $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
-$writer->save(RESULTS . '/' . $filename);
+$writer->save(XLSX_PATH . '/' . $filename);
