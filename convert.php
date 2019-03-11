@@ -1,10 +1,35 @@
 <?php
 
-use App\Helpers\RozetkaConverter;
+use App\Converters\{Converter, RozetkaConverter};
 
 $xlsxDir = opendir(XLSX_PATH);
-while (false !== ($file = readdir($xlsxDir))) {
-    if (preg_match('/^.+\.xlsx/i', $file)) {
-        RozetkaConverter::convert( XLSX_PATH . $file);
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $filenames = [];
+
+    foreach (glob(XLSX_PATH . '*.xlsx') as $filename) {
+            $filenames[] = pathinfo($filename)['basename'];
     }
+
+    include VIEWS_PATH . 'converter.php';
+    exit;
+}
+
+$filename = isset($_POST['filename']) ? $_POST['filename'] : '';
+
+if (file_exists(XLSX_PATH . $filename)) {
+    RozetkaConverter::convert( XLSX_PATH . $filename);
+}
+
+$file = XML_PATH . pathinfo($filename)['filename'] . '.xml';
+if (file_exists($file)) {
+    header('Content-Description: File Transfer');
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="'.basename($file).'"');
+    header('Expires: 0');
+    header('Cache-Control: must-revalidate');
+    header('Pragma: public');
+    header('Content-Length: ' . filesize($file));
+    readfile($file);
+    exit;
 }

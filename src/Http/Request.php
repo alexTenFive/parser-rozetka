@@ -14,6 +14,9 @@ class Request
     public function makeRequest(string $url)
     {
         $this->handler = $this->_create_handle();
+        
+        $res = $this->setProxy('CURLPROXY_HTTPS', '192.166.219.46:3128');
+
         $this->lastErrorCode = null;
         $this->lastHTTPCode = null;
         curl_setopt($this->handler, CURLOPT_URL, $url);

@@ -1,7 +1,5 @@
 <?php
-define('ROOT', __DIR__);
-include ROOT . '/conf/config.php';
-
+require_once __DIR__.'/config.php';
 // ALYA ROUTER
 $uri = trim(parse_url($_SERVER['REQUEST_URI'])['path'], '/');
 

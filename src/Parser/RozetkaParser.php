@@ -22,6 +22,7 @@ class RozetkaParser extends Parser {
     public function __construct($categoriesUrl = [])
     {
         $this->request = new Request();
+
         $this->categoriesUrl = $categoriesUrl;
         
         $this->logger = new Logger('parser-channel');
@@ -40,11 +41,6 @@ class RozetkaParser extends Parser {
             $this->pagesCount = null;
 
             $resultItems = [];
-            
-            $products = [
-                'category_url' => $categoryUrl,
-                'products' => []
-            ];
 
             $currentURL = $categoryUrl;
             
@@ -61,6 +57,29 @@ class RozetkaParser extends Parser {
                 if ($queryPagination->length > 0)
                     $this->pagesCount = $queryPagination[$queryPagination->length - 1]->nodeValue;
                 
+                $queryCategories = $xpath->query("//ul[contains(@class, 'breadcrumbs-catalog')]/li[position()>1]");
+                
+                $parentCategoryId = NULL;
+                if ($queryCategories->length > 0) {
+                    foreach ($queryCategories as $i => $node) {
+                        $catName = StringHelper::enRussian(trim($node->nodeValue));
+
+                        $categoriesRes = DBQuery::select('categories', [['name', 'LIKE', $catName]]);
+                        $categoryCount = count($categoriesRes);
+
+                        if (! (bool)$categoryCount) {
+                            $catId = DBQuery::insert('categories', [
+                                'parent_id' => $parentCategoryId,
+                                'name' => $catName
+                            ]);
+                            
+                            $parentCategoryId = $catId;
+                        } else {
+                            $parentCategoryId = $categoriesRes[0]['id'];
+                        }
+                    }
+                }
+
                 $this->logger->info('Category pages number succesfully computed. Pages count: ' . $this->pagesCount);                    
                 unset($htmlPage);
             }
@@ -102,9 +121,9 @@ class RozetkaParser extends Parser {
 
                     $product = $this->parseProductItem($htmlPageProduct, $item);
                     $this->logger->info('Product data succesfully parsed');
-                    $products['products'][] = $product;
                     
                     $category_id = DBQuery::insert('categories', [
+                        'parent_id' => $parentCategoryId,
                         'name' => $product['category']
                     ]);
                         
@@ -289,10 +308,12 @@ class RozetkaParser extends Parser {
         $dom->loadHtml($mainProductInfo);
         $xpath = new \DomXPath($dom);
 
-        $queryDescription = $xpath->query("//div[@id='short_text']");
+        $queryDescription = $xpath->query("//div[@id='short_text']/*");
         
         if ($queryDescription->length > 0) {
-            $mainData['description'] = StringHelper::enRussian($queryDescription[0]->nodeValue);
+            foreach ($queryDescription as $descPart) {
+                $mainData['description'] .= StringHelper::enRussian($dom->saveHTML($descPart));
+            }
         }
 
         $querySeller = $xpath->query("//span[@class='safe-merchant-label-title']");
@@ -322,5 +343,10 @@ class RozetkaParser extends Parser {
         
 
         return $mainData;
+    }
+
+    private function parseCategories(string $link): array
+    {
+        return [];
     }
 }

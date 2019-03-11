@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Helpers;
+namespace App\Converters;
 
 use PhpOffice\PhpSpreadsheet\Exception;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
@@ -9,22 +9,22 @@ use App\Helpers\SimpleXMLExtended as SimpleXMLExtended;
 
 class Converter
 {
-    private static $instance = null;
+    protected static $instance = null;
 
     /**
      * @return Converter
      */
     public static function getInstance()
     {
-        if (null === self::$instance) {
-            self::$instance = new self();
+        if (null === static::$instance) {
+            static::$instance = new static();
         }
-        return self::$instance;
+        return static::$instance;
     }
 
     public static function convert(string $pathToXLSX): bool
     {
-        return Converter::getInstance()->_convert($pathToXLSX);
+        return static::getInstance()->_convert($pathToXLSX);
     }
 
     protected function _convert(string $pathToXLSX): bool

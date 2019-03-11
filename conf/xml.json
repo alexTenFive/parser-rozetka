@@ -1,20 +1,48 @@
 {
   "xml":{
     "main": {
-      "name": "nodes",
+      "header": "yml_catalog",
+      "name":   "shop",
+      "childrenName": "offers"
+    },
+    "child": {
+      "name": "offer",
+      "cdata": [
+        "description"
+      ],
       "attrs": [
         {
-          "name": "xmlns",
-          "value": "http://www.w3.org/1999/xhtml"
+          "name": "name",
+          "value": "value"
         }
       ]
     },
+    "attributesFieldName": "param",
+    "attributesCharStart": "J"
+  },
+  "yml":{
+    "main": {
+      "header": "yml_catalog",
+      "name":   "shop",
+      "childrenName": "offers",
+      "currency": {
+        "id": "UAH",
+        "rate": 1
+      }
+    },
     "child": {
-      "name": "node",
+      "name": "offer",
       "cdata": [
-        "Description"
+        "description"
       ],
-      "attrs": []
-    }
+      "attrs": [
+        {
+          "name": "name",
+          "value": "value"
+        }
+      ]
+    },
+    "attributesFieldName": "param",
+    "attributesCharStart": "L"
   }
 }

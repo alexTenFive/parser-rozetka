@@ -2,6 +2,7 @@ vendor/
 logs/*
 xlsx/*
 xml/*
+.vscode
 
 !logs/.gitkeep
 !xlsx/.gitkeep

@@ -45,6 +45,26 @@ class DBQuery
         }
     }
 
+    public static function raw(string $query): array
+    {
+        $db = DB::getConnection();
+        try {
+        $stmt = $db->query($query);
+
+        $data = $stmt->fetchAll();
+
+            if (count($data)) {
+                return $data;
+            }
+
+            return [];
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo sprintf("<b style='font-size: 22px'>Error!</b><br><b>File: %s</b><br><b>Line: %d</b><br><b>Message:</b> %s<hr>", $e->getFile(), $e->getLine(), $e->getMessage());
+            exit();
+        }
+    }
+
     /**
      * @param string $table Table name
      * @param array $where = [] where clause operations
@@ -77,9 +97,29 @@ class DBQuery
                 $whereClause = "WHERE ";
                 foreach ($where as $k => $operation) {
                     if (is_array($operation) && count($operation) == 3) {
-                        $whereClause .= sprintf("(%s %s ?)", $operation[0], $operation[1]);
-                        
-                        $whereValues[] = $operation[2];
+                        if (is_array($operation[2])) {
+                            $items = $operation[2];
+                            $itemsList = '(';
+                            foreach ($items as $i => $item) {
+                                if ($i == count($items) - 1) {
+                                    $itemsList .= '?)';
+                                    break;
+                                }
+                                $itemsList .= '?,';
+                            }
+
+                            $whereClause .= sprintf("(%s %s %s)", $operation[0], $operation[1], $itemsList);
+                        } else {
+                            $whereClause .= sprintf("(%s %s ?)", $operation[0], $operation[1]);
+                        }
+
+                        if (is_array($operation[2])) {
+                            foreach ($operation[2] as $item) {
+                                $whereValues[] = $item;
+                            }
+                        } else {
+                            $whereValues[] = $operation[2];
+                        }
 
                         if (count($where) > 1 && $k != count($where) - 1) {
                             $whereClause .= " AND ";
@@ -92,8 +132,8 @@ class DBQuery
 
             $sql = sprintf("SELECT $fieldsString ", ...array_values($fields));
             $sql .= sprintf("FROM %s %s", $table, $whereClause); 
-            
             $stmt = $db->prepare($sql);
+
             $stmt->execute($whereValues);
             
             $data = $stmt->fetchAll();
