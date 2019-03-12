@@ -32,6 +32,7 @@ class RozetkaParser extends Parser {
     public function parse($forCat = '', $startFromPage = 0): void
     {
         $this->logger->info('Parsing start...');
+
         foreach ($this->categoriesUrl as $categoryUrl) {
             /**
              * clear pages after starting parse new category
@@ -56,38 +57,27 @@ class RozetkaParser extends Parser {
                 $queryPagination = $xpath->query("//a[contains(@class, 'paginator-catalog-l-link')]");
                 if ($queryPagination->length > 0)
                     $this->pagesCount = $queryPagination[$queryPagination->length - 1]->nodeValue;
-                
-                $queryCategories = $xpath->query("//ul[contains(@class, 'breadcrumbs-catalog')]/li[position()>1]");
-                
-                $parentCategoryId = NULL;
-                if ($queryCategories->length > 0) {
-                    foreach ($queryCategories as $i => $node) {
-                        $catName = StringHelper::enRussian(trim($node->nodeValue));
 
-                        $categoriesRes = DBQuery::select('categories', [['name', 'LIKE', $catName]]);
-                        $categoryCount = count($categoriesRes);
-
-                        if (! (bool)$categoryCount) {
-                            $catId = DBQuery::insert('categories', [
-                                'parent_id' => $parentCategoryId,
-                                'name' => $catName
-                            ]);
-                            
-                            $parentCategoryId = $catId;
-                        } else {
-                            $parentCategoryId = $categoriesRes[0]['id'];
-                        }
-                    }
-                }
-
-                $this->logger->info('Category pages number succesfully computed. Pages count: ' . $this->pagesCount);                    
+                $this->logger->info('Category pages number succesfully computed. Pages count: ' . $this->pagesCount);
+                DBQuery::insert('config', [
+                    'pagesCount' => $this->pagesCount
+                ]);                 
                 unset($htmlPage);
             }
 
             while ($this->currentPage <= $this->pagesCount) {
                 $this->logger->info('Page number: ' . $this->currentPage);
                 file_put_contents(LOGS.'/pageCounter.txt', $this->currentPage . PHP_EOL, FILE_APPEND);
-                $htmlPage = $this->request->makeRequest($currentURL . ($this->currentPage > 1 ? 'page=' . $this->currentPage . '/' : ''));
+                
+                $urlPage = $currentURL . ($this->currentPage > 1 ? 'page=' . $this->currentPage . '/' : '');
+
+                $section = false;
+                if (mb_strpos(parse_url($currentURL)['path'], "landing-pages")) {
+                    $section = true;
+                    $urlPage = str_replace("/landing-pages/", "/landing-pages/" . ($this->currentPage > 1 ? 'page=' . $this->currentPage . ';' : ''), $currentURL);
+                }
+
+                $htmlPage = $this->request->makeRequest($urlPage);
                 $this->currentPage = $this->currentPage + 1;
 
                 try {
@@ -101,7 +91,7 @@ class RozetkaParser extends Parser {
                     exit();
                 }
 
-                $items = $this->parseItemsList($htmlPage);
+                $items = $this->parseItemsList($htmlPage, $section);
 
                 foreach ($items as $item) {
                     $htmlPageProduct = $this->request->makeRequest($item . 'characteristics/');
@@ -122,18 +112,12 @@ class RozetkaParser extends Parser {
                     $product = $this->parseProductItem($htmlPageProduct, $item);
                     $this->logger->info('Product data succesfully parsed');
                     
-                    $category_id = DBQuery::insert('categories', [
-                        'parent_id' => $parentCategoryId,
-                        'name' => $product['category']
-                    ]);
-                        
-                    if ((bool)$category_id) {
-                        $this->logger->info('Category "' . $product['category'] . '" succesfully added. ID: ' . $category_id);
-                    }
-                    
-                    if ($category_id == 0) {
-                        $category_id = DBQuery::select('categories', [['name', 'like', $product['category']]], ['id'])[0]['id'];
-                        $this->logger->info('Category "' . $product['category'] . '" already exists. ID: ' . $category_id);                    
+                    $category_id = DBQuery::select('categories', [['name', 'like', $product['category']]], ['id']);
+
+                    if (! (bool)count($category_id)) {
+                        $category_id = 1;
+                    } else {
+                        $category_id = $category_id[0]['id'];
                     }
 
                     $product_id = DBQuery::insert('items', [
@@ -177,7 +161,7 @@ class RozetkaParser extends Parser {
      *
      * @param string $html Variable containing html code of current category page.
      */
-    protected function parseItemsList(string $html): array
+    protected function parseItemsList(string $html, bool $section = false): array
     {   
         $this->logger->info('Start parsing product links...');
 
@@ -185,7 +169,8 @@ class RozetkaParser extends Parser {
         $dom->loadHtml($html);
         $xpath = new \DomXPath($dom);
 
-        $queryProducts = $xpath->query("//div[@name='goods_list_container']//div[@class='g-i-tile-i-box-desc']/div[contains(@class, 'g-i-tile-i-title')]/a");
+        $mainBlockId = ["@name='goods_list_container'", "@id='catalog_goods_block'"];
+        $queryProducts = $xpath->query("//div[" . $mainBlockId[intval($section)] . "]//div[@class='g-i-tile-i-box-desc']/div[contains(@class, 'g-i-tile-i-title')]/a");
         
         $onPageItems = [];
 
@@ -219,6 +204,29 @@ class RozetkaParser extends Parser {
         $dom = new \DOMDocument();
         $dom->loadHtml($html);
         $xpath = new \DomXPath($dom);
+
+        $queryCategories = $xpath->query("//ul[@name='breadcrumbs']/li[position()>1]");
+                
+                $parentCategoryId = NULL;
+                if ($queryCategories->length > 0) {
+                    foreach ($queryCategories as $i => $node) {
+                        $catName = StringHelper::enRussian(trim($node->nodeValue));
+
+                        $categoriesRes = DBQuery::select('categories', [['name', 'LIKE', $catName]]);
+                        $categoryCount = count($categoriesRes);
+
+                        if (! (bool)$categoryCount) {
+                            $catId = DBQuery::insert('categories', [
+                                'parent_id' => $parentCategoryId,
+                                'name' => $catName
+                            ]);
+                            
+                            $parentCategoryId = $catId;
+                        } else {
+                            $parentCategoryId = $categoriesRes[0]['id'];
+                        }
+                    }
+                }
 
         // Get product category
         $queryCategory = $xpath->query("//ul[@name='breadcrumbs']/li[last()]");

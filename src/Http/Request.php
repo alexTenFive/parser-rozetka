@@ -15,7 +15,7 @@ class Request
     {
         $this->handler = $this->_create_handle();
         
-        $res = $this->setProxy('CURLPROXY_HTTPS', '192.166.219.46:3128');
+        $res = $this->setProxy('CURLPROXY_HTTPS', PROXY_ADDR);
 
         $this->lastErrorCode = null;
         $this->lastHTTPCode = null;

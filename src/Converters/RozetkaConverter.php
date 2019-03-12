@@ -28,7 +28,7 @@ class RozetkaConverter extends Converter
 
             $sheetData = array_map(function ($item) use ($sheetTitles) {
                 $categories = explode(' > ', $item[array_search('category', $sheetTitles)]);
-                $item[array_search('category', $sheetTitles)] = $categories[count($categories) - 1];
+                $item[array_search('category', $sheetTitles)] = $categories[count($categories) - 2];
                 return $item;
             }, $sheetData);
 
@@ -53,7 +53,7 @@ class RozetkaConverter extends Converter
             foreach ($parentIds as $id) {
                 $parentId = $id;
                 while ($row = DBQuery::raw(sprintf("SELECT * FROM categories WHERE id IS NOT NULL AND id = %s", $parentId))) {
-                    $categoriesData[] = $row[0];
+                    array_unshift($categoriesData, $row[0]);
                     $parentId = $row[0]['parent_id'];
                     if (is_null($parentId)) {
                         break;

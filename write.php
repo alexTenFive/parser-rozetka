@@ -35,14 +35,18 @@ $spreadsheet->setActiveSheetIndex(0)
 
 foreach ($items as $id => $item) {
     $category = DBQuery::select('categories', [['id', '=', $item['category_id']]])[0];
-    $categoryId = $category['id'];
 
     $categoriesList = [];
     $categoriesList[] = $category['name'];
 
     $parentId = $category['parent_id'];
 
+    $categoryId = null;
     while ($row = DBQuery::raw(sprintf("SELECT * FROM categories WHERE id = %s", $parentId))) {
+        if (! isset($categoryId)) {
+            $categoryId = $row[0]['id'];
+        }
+
         $parentId = $row[0]['parent_id'];
         $categoriesList[] = $row[0]['name'];
         if (is_null($parentId)) {

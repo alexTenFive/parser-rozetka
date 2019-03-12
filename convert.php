@@ -15,7 +15,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
+if (isset($_FILES['filename_u'])) {
+    $filename_u = $_FILES['filename_u'];
+    if (pathinfo($filename_u['name'])['extension'] === 'xlsx') {
+        move_uploaded_file( $filename_u['tmp_name'], XLSX_PATH . $filename_u['name']);
+    }
+
+    header('Location: /convert');
+}
+
 $filename = isset($_POST['filename']) ? $_POST['filename'] : '';
+
 
 if (file_exists(XLSX_PATH . $filename)) {
     RozetkaConverter::convert( XLSX_PATH . $filename);
