@@ -6,6 +6,8 @@ class Request
     public $lastHTTPCode = null;
     public $lastErrorCode = null;
     protected $handler;
+    protected $userAgentsFile = ROOT. '/useragents.dat';
+
     /**
      *
      * @param string $url
@@ -14,8 +16,6 @@ class Request
     public function makeRequest(string $url)
     {
         $this->handler = $this->_create_handle();
-        
-        $res = $this->setProxy('CURLPROXY_HTTPS', PROXY_ADDR);
 
         $this->lastErrorCode = null;
         $this->lastHTTPCode = null;
@@ -40,7 +40,7 @@ class Request
      * @param string $proxyType
      * @param string $proxyAddr
      */
-    public function setProxy(string $proxyType = '', string $proxyAddr = ''): bool
+    protected function setProxy(string $proxyType = '', string $proxyAddr = ''): bool
     {
         if ($proxyType && $proxyAddr)
         {
@@ -56,14 +56,24 @@ class Request
     /**
      * Create cURL instance.
      */
-    private function _create_handle()
+    protected function _create_handle()
     {
         $ch = curl_init();
+     
+        if (isset($this->userAgentsFile) &&
+                file_exists($this->userAgentsFile)){
+            $userAgents = file($this->userAgentsFile);
+            shuffle($userAgents);
+            $uagent = $userAgents[array_rand($userAgents)];
+            curl_setopt($ch, CURLOPT_USERAGENT, trim($uagent));
+        }
+
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 60);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+
         return $ch;
     }
 }

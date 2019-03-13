@@ -6,12 +6,36 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use App\Helpers\Config;
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $categories = DBQuery::raw("SELECT * FROM categories WHERE parent_id IS NULL AND id != 1");
     include VIEWS_PATH . 'writer.php';
     exit;
 }
 
 $filename = isset($_POST['filename']) ? $_POST['filename'] . '_' . date("Y-m-d") . '.xlsx' : 'parsed_products_' . date("Y-m-d") . '.xlsx';
-$items = DBQuery::select('items');
+$category_id = isset($_POST['category']) ? $_POST['category'] : 0;
+
+if ((bool) $category_id) {
+    /**
+     * Query for getting child categories recursively from parent one $category_id
+     */
+    $category_ids = DBQuery::raw("
+    select  id
+    from    (select * from categories
+            order by id) parent_categories,
+            (select @pv := $category_id) initialisation
+    where   find_in_set(parent_id, @pv)
+    and     length(@pv := concat(@pv, ',', id))
+");
+
+    $category_ids = implode(', ', array_map(function ($category) {
+        return $category['id'];
+    }, $category_ids));
+    
+    $items = DBQuery::raw("SELECT * FROM items WHERE category_id IN ($category_ids)");
+} else {
+    $items = DBQuery::select('items');
+}
+
 
 $spreadsheet = new Spreadsheet();
 // Set worksheet title

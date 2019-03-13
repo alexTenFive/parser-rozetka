@@ -2,7 +2,7 @@
 namespace App\Parser;
 
 use App\Lib\Parser\Parser;
-use App\Http\Request;
+use App\Http\ProxyRequest;
 use App\Helpers\StringHelper;
 use App\db\Tools\DBQuery;
 use Monolog\Logger;
@@ -21,7 +21,7 @@ class RozetkaParser extends Parser {
 
     public function __construct($categoriesUrl = [])
     {
-        $this->request = new Request();
+        $this->request = new ProxyRequest();
 
         $this->categoriesUrl = $categoriesUrl;
         
@@ -29,7 +29,7 @@ class RozetkaParser extends Parser {
         $this->logger->pushHandler(new StreamHandler(LOGS.'/parser.log', Logger::DEBUG));
     }
 
-    public function parse($forCat = '', $startFromPage = 0): void
+    public function parse(string $forCat = '', int $startFromPage = 0): void
     {
         $this->logger->info('Parsing start...');
 
@@ -45,38 +45,77 @@ class RozetkaParser extends Parser {
 
             $currentURL = $categoryUrl;
             
+            /**
+             * Set current page.
+             * If set parametres $forCat and $startFromPage then set to it
+             */
             $this->currentPage = (!empty($forCat) && $forCat === $currentURL && (bool)$startFromPage) ? $startFromPage : 1;
 
+            /**
+             * If $pagesCount not isset then make request to main category page
+             * and grab it
+             * Also Truncate config table that contain parameters: pagesCount and productsCount
+             * It is need for ajax progress bar
+             */
             if (! isset($this->pagesCount)) {
                 $htmlPage = $this->request->makeRequest($currentURL);
-
+                $this->logger->error($this->request->lastHTTPCode);
+                $this->logger->error($this->request->lastErrorCode);
                 $dom = new \DOMDocument();
                 $dom->loadHtml($htmlPage);
                 $xpath = new \DomXPath($dom);
 
+                try {
+                    if (! $htmlPage){
+                        throw new \Exception('Cannot retrieve html page data');
+                    }
+                } catch (\Exception $e) {
+                    http_response_code(500);
+                    echo sprintf("<b style='font-size: 22px'>Error!</b><br><b>File: %s</b><br><b>Line: %d</b><br><b>Message:</b> %s<hr>", $e->getFile(), $e->getLine(), $e->getMessage());
+                    $this->logger->error($e->getMessage());
+                    exit();
+                }
+
+                // get paginator
                 $queryPagination = $xpath->query("//a[contains(@class, 'paginator-catalog-l-link')]");
                 if ($queryPagination->length > 0)
-                    $this->pagesCount = $queryPagination[$queryPagination->length - 1]->nodeValue;
+                    $this->pagesCount = $queryPagination[$queryPagination->length - 1]->nodeValue - ($this->currentPage - 1);
 
                 $this->logger->info('Category pages number succesfully computed. Pages count: ' . $this->pagesCount);
+                
+                DBQuery::raw("TRUNCATE table config;");
                 DBQuery::insert('config', [
-                    'pagesCount' => $this->pagesCount
-                ]);                 
+                    'pagesCount' => $this->pagesCount,
+                    'productsCount' => 0
+                ]);
+
                 unset($htmlPage);
             }
 
+            /**
+             * loop page-by-page
+             */
             while ($this->currentPage <= $this->pagesCount) {
                 $this->logger->info('Page number: ' . $this->currentPage);
-                file_put_contents(LOGS.'/pageCounter.txt', $this->currentPage . PHP_EOL, FILE_APPEND);
+                //file_put_contents(LOGS.'/pageCounter.txt', $this->currentPage . PHP_EOL, FILE_APPEND);
                 
+                /**
+                 * Add page param to url
+                 * If url it is landing page then add another way.
+                 * $section param need for getting product links in future for /landing-pages/
+                 */
                 $urlPage = $currentURL . ($this->currentPage > 1 ? 'page=' . $this->currentPage . '/' : '');
 
-                $section = false;
+                $section = false; 
+                
                 if (mb_strpos(parse_url($currentURL)['path'], "landing-pages")) {
+                    // Add page param another way
+
                     $section = true;
                     $urlPage = str_replace("/landing-pages/", "/landing-pages/" . ($this->currentPage > 1 ? 'page=' . $this->currentPage . ';' : ''), $currentURL);
                 }
 
+                // get page with products
                 $htmlPage = $this->request->makeRequest($urlPage);
                 $this->currentPage = $this->currentPage + 1;
 
@@ -91,9 +130,17 @@ class RozetkaParser extends Parser {
                     exit();
                 }
 
+                /**
+                 * get product links for parse every one
+                 */
                 $items = $this->parseItemsList($htmlPage, $section);
 
+                unset($htmlPage);
+                /**
+                 * make request for every product
+                 */
                 foreach ($items as $item) {
+                    // characteristics page
                     $htmlPageProduct = $this->request->makeRequest($item . 'characteristics/');
 
                     try {
@@ -110,12 +157,14 @@ class RozetkaParser extends Parser {
                     unset($items);
 
                     $product = $this->parseProductItem($htmlPageProduct, $item);
+                    unset($htmlPageProduct);
+
                     $this->logger->info('Product data succesfully parsed');
                     
                     $category_id = DBQuery::select('categories', [['name', 'like', $product['category']]], ['id']);
 
                     if (! (bool)count($category_id)) {
-                        $category_id = 1;
+                        $category_id = 1; // Undefined category
                     } else {
                         $category_id = $category_id[0]['id'];
                     }
@@ -141,12 +190,15 @@ class RozetkaParser extends Parser {
 
                     }
 
+                    
                     foreach ($product['images'] as $image) {
                         DBQuery::insert('images', [
                             'product_id' => $product_id,
                             'link'       => $image
                         ]);
                     }
+
+                    DBQuery::raw("UPDATE config SET productsCount = productsCount+1");
                     unset($product);
                 }
             }
@@ -201,32 +253,12 @@ class RozetkaParser extends Parser {
             'title' => '',
             'attributes' => []
         ];
+        
         $dom = new \DOMDocument();
         $dom->loadHtml($html);
         $xpath = new \DomXPath($dom);
 
-        $queryCategories = $xpath->query("//ul[@name='breadcrumbs']/li[position()>1]");
-                
-                $parentCategoryId = NULL;
-                if ($queryCategories->length > 0) {
-                    foreach ($queryCategories as $i => $node) {
-                        $catName = StringHelper::enRussian(trim($node->nodeValue));
-
-                        $categoriesRes = DBQuery::select('categories', [['name', 'LIKE', $catName]]);
-                        $categoryCount = count($categoriesRes);
-
-                        if (! (bool)$categoryCount) {
-                            $catId = DBQuery::insert('categories', [
-                                'parent_id' => $parentCategoryId,
-                                'name' => $catName
-                            ]);
-                            
-                            $parentCategoryId = $catId;
-                        } else {
-                            $parentCategoryId = $categoriesRes[0]['id'];
-                        }
-                    }
-                }
+        $this->parseAndInsertCategoriesTree($xpath);
 
         // Get product category
         $queryCategory = $xpath->query("//ul[@name='breadcrumbs']/li[last()]");
@@ -353,8 +385,33 @@ class RozetkaParser extends Parser {
         return $mainData;
     }
 
-    private function parseCategories(string $link): array
+    private function parseAndInsertCategoriesTree(\DomXPath $xpath): void
     {
-        return [];
+
+        $queryCategories = $xpath->query("//ul[@name='breadcrumbs']/li[position()>1]");
+                
+        $parentCategoryId = NULL;
+        if ($queryCategories->length > 0) {
+            foreach ($queryCategories as $i => $node) {
+                $catName = StringHelper::enRussian(trim($node->nodeValue));
+
+                $categoriesRes = DBQuery::select('categories', [['name', 'LIKE', $catName]]);
+                $categoryCount = count($categoriesRes);
+
+                if (! (bool)$categoryCount) {
+                    $catId = DBQuery::insert('categories', [
+                        'parent_id' => $parentCategoryId,
+                        'name' => $catName
+                    ]);
+                    
+                    $parentCategoryId = $catId;
+                } else {
+                    $parentCategoryId = $categoriesRes[0]['id'];
+                }
+            }
+        }
+
+        $this->logger->info("Categories tree parsend and insert successfully!");
     }
+
 }
