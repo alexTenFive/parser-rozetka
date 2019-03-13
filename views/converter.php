@@ -1,3 +1,5 @@
+<?php include VIEWS_PATH . 'layout.php'; ?>
+
 <form action="convert" method="POST" enctype="multipart/form-data">
     <input type="file" name="filename_u">
     <input type="submit" value="upload">

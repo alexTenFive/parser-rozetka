@@ -26,40 +26,16 @@ class RozetkaConverter extends Converter
             $sheetTitles = array_shift($sheetData);
             $sheetTitles = array_map('mb_strtolower', $sheetTitles);
 
+            /**
+             * Get product categories from breadcrumbs excel
+             */
             $sheetData = array_map(function ($item) use ($sheetTitles) {
                 $categories = explode(' > ', $item[array_search('category', $sheetTitles)]);
                 $item[array_search('category', $sheetTitles)] = $categories[count($categories) - 2];
                 return $item;
             }, $sheetData);
 
-            $data = array_map(function ($item) use ($sheetTitles) { return $item[array_search('category', $sheetTitles)]; }, $sheetData);
-            $data = array_unique($data);
-
-            $args = "";
-            foreach (array_values($data) as $i => $item) {
-                if ($i == count($data) - 1) {
-                    $args .= "'$item'";
-                    break;
-                }
-                $args .= "'$item', ";
-            }
-
-            $categoriesData = DBQuery::raw(sprintf("SELECT * FROM categories c WHERE name in (%s)", $args));
-
-            $parentIds = array_unique(array_map(function ($item) {
-                return $item['parent_id'];
-            }, $categoriesData));
-
-            foreach ($parentIds as $id) {
-                $parentId = $id;
-                while ($row = DBQuery::raw(sprintf("SELECT * FROM categories WHERE id IS NOT NULL AND id = %s", $parentId))) {
-                    array_unshift($categoriesData, $row[0]);
-                    $parentId = $row[0]['parent_id'];
-                    if (is_null($parentId)) {
-                        break;
-                    }
-                }
-            }
+            $categoriesData = $this->getCategoriesData($sheetData, $sheetTitles);
         
             $attributesChar = Config::get("yml.attributesCharStart");
 
@@ -72,14 +48,14 @@ class RozetkaConverter extends Converter
                 $currentDate = date('Y-m-d H:m');
                 $newXML = new SimpleXMLExtended("<?xml version='1.0' encoding='utf-8'?><$headerEl date='$currentDate'><$mainEl></$mainEl></$headerEl>");
                 $shopXML = $newXML->{$mainEl}[0];
-                $shopXML->addChild('name', 'Rozetka');
-                $shopXML->addChild('company', 'My company');
-                $shopXML->addChild('platform', 'Yandex.YML for OpenCart (ocStore)');
+                $shopXML->addChild('name', Config::get("yml.main.fields.name", "elements"));
+                $shopXML->addChild('company', Config::get("yml.main.fields.company", "elements"));
+                $shopXML->addChild('platform', Config::get("yml.main.fields.platform", "elements"));
 
                 $currenciesXML = $shopXML->addChild('currencies');
                 $currencyXML = $currenciesXML->addChild('currency');
-                $currencyXML->addAttribute('id', Config::get("yml.main.currency.id", "element"));
-                $currencyXML->addAttribute('rate', Config::get("yml.main.currency.rate", "element"));
+                $currencyXML->addAttribute('id', Config::get("yml.main.currency.id", "elements"));
+                $currencyXML->addAttribute('rate', Config::get("yml.main.currency.rate", "elements"));
 
                 $shopXML->addChild('categories');
                 $categoriesXML = $shopXML->categories[0];
@@ -104,7 +80,7 @@ class RozetkaConverter extends Converter
                 $offersXML = $newXML->{$mainEl}[0]->{$childrenName}[0];
 
                 foreach ($sheetData as $row) {
-                    $job = $offersXML->addChild(Config::get("yml.child.name", "element"));
+                    $job = $offersXML->addChild(Config::get("yml.child.name", "elements"));
                     foreach ($row as $key => $data) {
                         if ($sheetTitles[$key] === 'vendor') {
                             if (empty($data)) {
@@ -117,7 +93,7 @@ class RozetkaConverter extends Converter
                         } else if ($sheetTitles[$key] === 'category') {
                             $job->{'categoryId'} = null;
                             $job->{'categoryId'} = $row[array_search('categoryid', $sheetTitles)];
-                        } else if ($key >= $attributesChar && !empty($data)) {
+                        } else if (($key >= $attributesChar  || strlen($key) > 1) && !empty($data)) {
                             $param = $job->addChild(Config::get("yml.attributesFieldName"), $data);
                             $param->addAttribute('name', $this->mb_ucfirst($sheetTitles[$key], 'utf8'));
                             continue;
@@ -128,7 +104,7 @@ class RozetkaConverter extends Converter
                         } else if ( in_array($sheetTitles[$key], Config::get("yml.child.cdata", [])) ) {
                             $job->{$sheetTitles[$key]} = null;    
                             $job->{$sheetTitles[$key]}->addCData($data);
-                        } else if ($key < $attributesChar) {
+                        } else if (strlen($key) < 2 && $key < $attributesChar) {
                             $job->{$sheetTitles[$key]} = null;
                             $job->{$sheetTitles[$key]} = $data;
                         }
@@ -151,6 +127,39 @@ class RozetkaConverter extends Converter
             return false;
         }
         return true;
+    }
+
+    private function getCategoriesData(array $sheetData, array $sheetTitles): array
+    {
+        $data = array_map(function ($item) use ($sheetTitles) { return $item[array_search('category', $sheetTitles)]; }, $sheetData);
+        $data = array_unique($data);
+
+        $args = "";
+        foreach (array_values($data) as $i => $item) {
+            if ($i == count($data) - 1) {
+                $args .= "'$item'";
+                break;
+            }
+            $args .= "'$item', ";
+        }
+
+        $categoriesData = DBQuery::raw(sprintf("SELECT * FROM categories c WHERE name in (%s)", $args));
+
+        $parentIds = array_unique(array_map(function ($item) {
+            return $item['parent_id'];
+        }, $categoriesData));
+
+        foreach ($parentIds as $id) {
+            $parentId = $id;
+            while ($row = DBQuery::raw(sprintf("SELECT * FROM categories WHERE id IS NOT NULL AND id = %s", $parentId))) {
+                array_unshift($categoriesData, $row[0]);
+                $parentId = $row[0]['parent_id'];
+                if (is_null($parentId)) {
+                    break;
+                }
+            }
+        }
+        return $categoriesData;
     }
 
     private function mb_ucfirst($string, $encoding)

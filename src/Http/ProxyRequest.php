@@ -33,6 +33,10 @@ class ProxyRequest extends Request
             $this->lastErrorCode = curl_errno($this->handler);
             
             curl_close($this->handler);
+            /**
+             * if was an error, then whe check file with proxies
+             * and retry the request with different proxy
+             */
             if (file_exists($this->proxiesFile)) {
                 $lines = file($this->proxiesFile);
                 $this->logger->info("Proxy was changed: " . $lines[$this->proxyCounter]);

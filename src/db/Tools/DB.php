@@ -24,7 +24,8 @@ class DB
         try {
             $this->pdo = new PDO($dsn, static::$db_params['db_username'], static::$db_params['db_password'], $options);
         } catch (\PDOException $e) {
-            echo sprintf("<b style='font-size: 22px'>Error!</b><br><b>File: %s</b><br><b>Line: %d</b><br><b>Message:</b> %s<hr>", $e->getFile(), $e->getLine(), $e->getMessage());
+            include VIEWS_PATH . 'errors/error.php';
+            exit;
         }
     }
     

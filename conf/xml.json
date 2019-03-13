@@ -28,6 +28,11 @@
       "currency": {
         "id": "UAH",
         "rate": 1
+      },
+      "fields": {
+        "name": "Rozetka",
+        "company": "My company",
+        "platform": "Yandex.YML for OpenCart (ocStore)"
       }
     },
     "child": {

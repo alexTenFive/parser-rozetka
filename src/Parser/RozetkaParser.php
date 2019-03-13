@@ -13,198 +13,168 @@ class RozetkaParser extends Parser {
     /**
      * Limit of pages for parsing.
      */
-    protected $categoriesUrl = [];
+    protected $categoryUrl = '';
     protected $request;
     protected $pagesCount;
     protected $currentPage;
     private $logger;
 
-    public function __construct($categoriesUrl = [])
+    public function __construct($categoryUrl = [])
     {
         $this->request = new ProxyRequest();
 
-        $this->categoriesUrl = $categoriesUrl;
+        $this->categoryUrl = $categoryUrl;
         
+        // Create channel for parsing logs
         $this->logger = new Logger('parser-channel');
-        $this->logger->pushHandler(new StreamHandler(LOGS.'/parser.log', Logger::DEBUG));
+        $this->logger->pushHandler(new StreamHandler(LOGS . '/parser.log', Logger::DEBUG));
     }
 
     public function parse(string $forCat = '', int $startFromPage = 0): void
     {
         $this->logger->info('Parsing start...');
 
-        foreach ($this->categoriesUrl as $categoryUrl) {
-            /**
-             * clear pages after starting parse new category
-             */
-            $this->logger->info('Category: ' . $categoryUrl);
+        /**
+         * clear pages after starting parse new category
+         */
+        $this->logger->info('Category: ' . $this->categoryUrl);
 
-            $this->pagesCount = null;
+        $this->pagesCount = null;
 
-            $resultItems = [];
+        $resultItems = [];
 
-            $currentURL = $categoryUrl;
-            
-            /**
-             * Set current page.
-             * If set parametres $forCat and $startFromPage then set to it
-             */
-            $this->currentPage = (!empty($forCat) && $forCat === $currentURL && (bool)$startFromPage) ? $startFromPage : 1;
+        $currentURL = $this->categoryUrl;
+        
+        /**
+         * Set current page.
+         * If set parametres $forCat and $startFromPage then set to it
+         */
+        $this->currentPage = (!empty($forCat) && $forCat === $currentURL && (bool)$startFromPage) ? $startFromPage : 1;
 
-            /**
-             * If $pagesCount not isset then make request to main category page
-             * and grab it
-             * Also Truncate config table that contain parameters: pagesCount and productsCount
-             * It is need for ajax progress bar
-             */
-            if (! isset($this->pagesCount)) {
-                $htmlPage = $this->request->makeRequest($currentURL);
-                $this->logger->error($this->request->lastHTTPCode);
-                $this->logger->error($this->request->lastErrorCode);
-                $dom = new \DOMDocument();
-                $dom->loadHtml($htmlPage);
-                $xpath = new \DomXPath($dom);
+        /**
+         * If $pagesCount not isset then make request to main category page
+         * and grab it
+         * Also Truncate config table that contain parameters: pagesCount and productsCount
+         * It is need for ajax progress bar
+         */
+        if (! isset($this->pagesCount)) {
+            $htmlPage = $this->request->makeRequest($currentURL);
+            $this->logger->error($this->request->lastHTTPCode);
+            $this->logger->error($this->request->lastErrorCode);
+            $dom = new \DOMDocument();
+            $dom->loadHtml($htmlPage);
+            $xpath = new \DomXPath($dom);
 
-                try {
-                    if (! $htmlPage){
-                        throw new \Exception('Cannot retrieve html page data');
-                    }
-                } catch (\Exception $e) {
-                    http_response_code(500);
-                    echo sprintf("<b style='font-size: 22px'>Error!</b><br><b>File: %s</b><br><b>Line: %d</b><br><b>Message:</b> %s<hr>", $e->getFile(), $e->getLine(), $e->getMessage());
-                    $this->logger->error($e->getMessage());
-                    exit();
+            try {
+                if (! $htmlPage){
+                    throw new \Exception('Cannot retrieve html page data');
                 }
-
-                // get paginator
-                $queryPagination = $xpath->query("//a[contains(@class, 'paginator-catalog-l-link')]");
-                if ($queryPagination->length > 0)
-                    $this->pagesCount = $queryPagination[$queryPagination->length - 1]->nodeValue - ($this->currentPage - 1);
-
-                $this->logger->info('Category pages number succesfully computed. Pages count: ' . $this->pagesCount);
-                
-                DBQuery::raw("TRUNCATE table config;");
-                DBQuery::insert('config', [
-                    'pagesCount' => $this->pagesCount,
-                    'productsCount' => 0
-                ]);
-
-                unset($htmlPage);
+            } catch (\Exception $e) {
+                http_response_code(500);
+                include VIEWS_PATH . 'errors/error.php';
+                $this->logger->error($e->getMessage());
+                exit();
             }
 
-            /**
-             * loop page-by-page
-             */
-            while ($this->currentPage <= $this->pagesCount) {
-                $this->logger->info('Page number: ' . $this->currentPage);
-                //file_put_contents(LOGS.'/pageCounter.txt', $this->currentPage . PHP_EOL, FILE_APPEND);
-                
-                /**
-                 * Add page param to url
-                 * If url it is landing page then add another way.
-                 * $section param need for getting product links in future for /landing-pages/
-                 */
-                $urlPage = $currentURL . ($this->currentPage > 1 ? 'page=' . $this->currentPage . '/' : '');
+            // get paginator
+            $queryPagination = $xpath->query("//a[contains(@class, 'paginator-catalog-l-link')]");
+            if ($queryPagination->length > 0)
+                $this->pagesCount = $queryPagination[$queryPagination->length - 1]->nodeValue;
 
-                $section = false; 
-                
-                if (mb_strpos(parse_url($currentURL)['path'], "landing-pages")) {
-                    // Add page param another way
-
-                    $section = true;
-                    $urlPage = str_replace("/landing-pages/", "/landing-pages/" . ($this->currentPage > 1 ? 'page=' . $this->currentPage . ';' : ''), $currentURL);
-                }
-
-                // get page with products
-                $htmlPage = $this->request->makeRequest($urlPage);
-                $this->currentPage = $this->currentPage + 1;
-
-                try {
-                    if (! $htmlPage){
-                        throw new \Exception('Cannot retrieve html page data');
-                    }
-                } catch (\Exception $e) {
-                    http_response_code(500);
-                    echo sprintf("<b style='font-size: 22px'>Error!</b><br><b>File: %s</b><br><b>Line: %d</b><br><b>Message:</b> %s<hr>", $e->getFile(), $e->getLine(), $e->getMessage());
-                    $this->logger->error($e->getMessage());
-                    exit();
-                }
-
-                /**
-                 * get product links for parse every one
-                 */
-                $items = $this->parseItemsList($htmlPage, $section);
-
-                unset($htmlPage);
-                /**
-                 * make request for every product
-                 */
-                foreach ($items as $item) {
-                    // characteristics page
-                    $htmlPageProduct = $this->request->makeRequest($item . 'characteristics/');
-
-                    try {
-                        if (! $htmlPageProduct){
-                            throw new \Exception('Cannot retrieve html page data');
-                        }
-                    } catch (\Exception $e) {
-                        http_response_code(500);
-                        echo sprintf("<b style='font-size: 22px'>Error!</b><br><b>File: %s</b><br><b>Line: %d</b><br><b>Message:</b> %s<hr>", $e->getFile(), $e->getLine(), $e->getMessage());
-                        $this->logger->info($e->getMessage());
-                        exit();
-                    }
-
-                    unset($items);
-
-                    $product = $this->parseProductItem($htmlPageProduct, $item);
-                    unset($htmlPageProduct);
-
-                    $this->logger->info('Product data succesfully parsed');
-                    
-                    $category_id = DBQuery::select('categories', [['name', 'like', $product['category']]], ['id']);
-
-                    if (! (bool)count($category_id)) {
-                        $category_id = 1; // Undefined category
-                    } else {
-                        $category_id = $category_id[0]['id'];
-                    }
-
-                    $product_id = DBQuery::insert('items', [
-                        'sku'   => $product['sku'],
-                        'price' => $product['price'],
-                        'name' => $product['title'],
-                        'category_id' => $category_id,
-                        'description' => $product['description'],
-                        'attributes' => json_encode($product['attributes']),
-                        'seller' => $product['seller'],
-                        'isOnTop' => $product['topSale']
-                    ]);
-
-                    if ((bool)$product_id) {
-                        $this->logger->info('Product "' . $product['title'] . '" succesfully inserted. ID: ' . $product_id);                    
-                    }
-
-                    if ($product_id == 0) {
-                        $product_id = DBQuery::select('items', [['name', 'like', $product['title']]], ['id'])[0]['id'];
-                        $this->logger->info('Product "' . $product['title'] . '" already exists. ID: ' . $product_id);                    
-
-                    }
-
-                    
-                    foreach ($product['images'] as $image) {
-                        DBQuery::insert('images', [
-                            'product_id' => $product_id,
-                            'link'       => $image
-                        ]);
-                    }
-
-                    DBQuery::raw("UPDATE config SET productsCount = productsCount+1");
-                    unset($product);
-                }
-            }
+            $this->logger->info('Category pages number succesfully computed. Pages count: ' . $this->pagesCount);
             
-            $this->logger->info('Parse category ended');
+            DBQuery::raw("TRUNCATE table config;");
+            DBQuery::insert('config', [
+                'pagesCount'    => $this->pagesCount - ($this->currentPage - 1),
+                'productsCount' => 0,
+                'complete'     => 0,
+            ]);
+
         }
+
+        /**
+         * loop page-by-page
+         */
+        while ($this->currentPage <= $this->pagesCount) {
+            $this->logger->info('Page number: ' . $this->currentPage);
+            //file_put_contents(LOGS.'/pageCounter.txt', $this->currentPage . PHP_EOL, FILE_APPEND);
+            
+            /**
+             * Add page param to url
+             * If url it is landing page then add another way.
+             * $section param need for getting product links in future for /landing-pages/
+             */
+            $urlPage = $currentURL . ($this->currentPage > 1 ? 'page=' . $this->currentPage . '/' : '');
+
+            $section = false; 
+            
+            if (mb_strpos(parse_url($currentURL)['path'], "landing-pages")) {
+                // Add page param another way
+                $section = true;
+                $urlPage = str_replace("/landing-pages/", "/landing-pages/" . ($this->currentPage > 1 ? 'page=' . $this->currentPage . ';' : ''), $currentURL);
+            }
+
+            // get page with products
+            if ($urlPage !== $currentURL) {
+                $htmlPage = $this->request->makeRequest($urlPage);
+            }
+
+            $this->currentPage = $this->currentPage + 1;
+
+            try {
+                if (! $htmlPage){
+                    throw new \Exception('Cannot retrieve html page data');
+                }
+            } catch (\Exception $e) {
+                http_response_code(500);
+                include VIEWS_PATH . 'errors/error.php';
+                $this->logger->error($e->getMessage());
+                exit();
+            }
+
+            /**
+             * get product links for parse every one
+             */
+            $items = $this->parseItemsList($htmlPage, $section);
+
+            unset($htmlPage);
+            /**
+             * make request for every product
+             */
+            foreach ($items as $item) {
+                // characteristics page
+                $htmlPageProduct = $this->request->makeRequest($item . 'characteristics/');
+
+                try {
+                    if (! $htmlPageProduct){
+                        throw new \Exception('Cannot retrieve html page data');
+                    }
+                } catch (\Exception $e) {
+                    http_response_code(500);
+                    include VIEWS_PATH . 'errors/error.php';
+                    $this->logger->info($e->getMessage());
+                    exit();
+                }
+
+                unset($items);
+                
+                /**
+                 * Get all product data
+                 */
+                $product = $this->parseProductItem($htmlPageProduct, $item);
+                unset($htmlPageProduct);
+
+                $this->logger->info('Product data succesfully parsed');
+                
+                $this->insertProductData($product);
+                
+                DBQuery::raw("UPDATE config SET productsCount = productsCount+1");
+
+                unset($product);
+            }
+        }
+        DBQuery::raw("UPDATE config SET complete = 1");
+        $this->logger->info('Parse category ended');
         $this->logger->info('Parse ended');
 
     }
@@ -242,21 +212,38 @@ class RozetkaParser extends Parser {
             $this->logger->info($links);
         }
 
+        unset($dom, $xpath);
+
         return $onPageItems;
     }
 
-    protected function parseProductItem(string $html, $link): array
+    /**
+     * Get all product info from page 
+     * 
+     * @param string $html
+     * @param string $link
+     * 
+     * @return array
+     */
+    protected function parseProductItem(string $html, string $link): array
     {
         $product = [
-            'category' => '',
-            'images' => [],
-            'title' => '',
-            'attributes' => []
+            'category'    => '',
+            'images'      => [],
+            'title'       => '',
+            'attributes'  => [],
+            'description' => '',
+            'seller'      => '',
+            'topSale'     => 0,
+            'price'       => 0,
+            'sku'         => '',
         ];
         
         $dom = new \DOMDocument();
         $dom->loadHtml($html);
         $xpath = new \DomXPath($dom);
+
+        unset($dom);
 
         $this->parseAndInsertCategoriesTree($xpath);
 
@@ -280,18 +267,27 @@ class RozetkaParser extends Parser {
 
                 if ($queryProductTitle->length > 0)
                     $product['title'] = StringHelper::enRussian($queryProductTitle[0]->nodeValue);
+
                 $queryProductAttributes = $xpath->query("//table[@class='chars-t']", $q); 
     
-                // Get product characteristics from table            
-                if ($queryProductAttributes->length > 0) {
+                /**
+                 * Get product characteristics from table
+                 */
+                /**
+                 * TODO: Шото надо делать
+                */
+                 if ($queryProductAttributes->length > 0) {
                     foreach ($queryProductAttributes[0]->childNodes as $tr) {
-                        list($key, $value) = [StringHelper::enRussian($tr->childNodes[0]->nodeValue), StringHelper::enRussian($tr->childNodes[2]->nodeValue)];
+                        list($key, $value) = [
+                            StringHelper::enRussian($tr->childNodes[0]->nodeValue),
+                            StringHelper::enRussian($tr->childNodes[2]->nodeValue)
+                        ];
+                    
                         $product['attributes'][$key] = $value;
                     }
                 }
             }
         }
-        
 
         $mainData = $this->getProductMainData($link);
         $product['description'] = $mainData['description'];
@@ -329,6 +325,8 @@ class RozetkaParser extends Parser {
     }
 
     /**
+     * Get product data from main product page
+     * 
      * @param string $link
      * 
      * @return string
@@ -337,10 +335,10 @@ class RozetkaParser extends Parser {
     {
         $mainData = [
             'description' => '',
-            'seller' => '',
-            'topSale' => false,
-            'price'   => 0,
-            'sku'     => ''
+            'seller'      => '',
+            'topSale'     => false,
+            'price'       => 0,
+            'sku'         => ''
         ];
         
         $dom = new \DOMDocument();
@@ -348,6 +346,9 @@ class RozetkaParser extends Parser {
         $dom->loadHtml($mainProductInfo);
         $xpath = new \DomXPath($dom);
 
+        /**
+         * Parse product description with html tags
+         */
         $queryDescription = $xpath->query("//div[@id='short_text']/*");
         
         if ($queryDescription->length > 0) {
@@ -381,10 +382,16 @@ class RozetkaParser extends Parser {
             $mainData['seller'] = StringHelper::enRussian($querySeller[0]->nodeValue);
         }
         
-
         return $mainData;
     }
 
+    /**
+     * Parse categories breadcrums and insert into db
+     * 
+     * @param DomXPath $xpath
+     * 
+     * @return void
+     */
     private function parseAndInsertCategoriesTree(\DomXPath $xpath): void
     {
 
@@ -412,6 +419,54 @@ class RozetkaParser extends Parser {
         }
 
         $this->logger->info("Categories tree parsend and insert successfully!");
+    }
+
+    /**
+     * Insert data about product into DB with log messages
+     * 
+     * @param array $product
+     * 
+     * @return bool
+     */
+    private function insertProductData(array $product): bool
+    {
+        $category_id = DBQuery::select('categories', [['name', 'like', $product['category']]], ['id']);
+
+        if (! (bool)count($category_id)) {
+            $category_id = 1; // Undefined category
+        } else {
+            $category_id = $category_id[0]['id'];
+        }
+
+        $product_id = DBQuery::insert('items', [
+            'sku'         => $product['sku'],
+            'price'       => $product['price'],
+            'name'        => $product['title'],
+            'category_id' => $category_id,
+            'description' => $product['description'],
+            'attributes'  => json_encode($product['attributes']),
+            'seller'      => $product['seller'],
+            'isOnTop'     => $product['topSale']
+        ]);
+
+        if ((bool)$product_id) {
+            $this->logger->info('Product "' . $product['title'] . '" succesfully inserted. ID: ' . $product_id);                    
+        }
+
+        if ($product_id == 0) {
+            $product_id = DBQuery::select('items', [['name', 'like', $product['title']]], ['id'])[0]['id'];
+            $this->logger->info('Product "' . $product['title'] . '" already exists. ID: ' . $product_id);                    
+
+        }
+
+        foreach ($product['images'] as $image) {
+            DBQuery::insert('images', [
+                'product_id' => $product_id,
+                'link'       => $image
+            ]);
+        }
+
+        return true;
     }
 
 }

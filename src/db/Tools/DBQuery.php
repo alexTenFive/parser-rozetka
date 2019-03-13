@@ -40,7 +40,7 @@ class DBQuery
             return $db->lastInsertId();
         } catch (\Exception $e) {
             http_response_code(500);
-            echo sprintf("<b style='font-size: 22px'>Error!</b><br><b>File: %s</b><br><b>Line: %d</b><br><b>Message:</b> %s<hr>", $e->getFile(), $e->getLine(), $e->getMessage());
+            include VIEWS_PATH . 'errors/error.php';
             exit();
         }
     }
@@ -60,7 +60,7 @@ class DBQuery
             return [];
         } catch (\Exception $e) {
             http_response_code(500);
-            echo sprintf("<b style='font-size: 22px'>Error!</b><br><b>File: %s</b><br><b>Line: %d</b><br><b>Message:</b> %s<hr>", $e->getFile(), $e->getLine(), $e->getMessage());
+            include VIEWS_PATH . 'errors/error.php';
             exit();
         }
     }
@@ -145,7 +145,7 @@ class DBQuery
             return [];
         } catch (\Exception $e) {
             http_response_code(500);
-            echo sprintf("<b style='font-size: 22px'>Error!</b><br><b>File: %s</b><br><b>Line: %d</b><br><b>Message:</b> %s<hr>", $e->getFile(), $e->getLine(), $e->getMessage());
+            include VIEWS_PATH . 'errors/error.php';
             exit();
         }
     }

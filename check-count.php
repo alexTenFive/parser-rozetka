@@ -5,8 +5,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pagesCount = DBQuery::select('config');
 
     echo json_encode([
-        'success' => true,
+        'success'       => true,
         'countProducts' => $pagesCount[0]['productsCount'],
-        'pagesCount' => $pagesCount[0]['pagesCount']
+        'pagesCount'    => $pagesCount[0]['pagesCount'],
+        'complete'      => $pagesCount[0]['complete']
     ]);
 }

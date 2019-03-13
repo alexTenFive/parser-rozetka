@@ -91,15 +91,20 @@ foreach ($items as $id => $item) {
     if ($attributes !== NULL) {
         foreach ($attributes as $key => $value) {
 
-            if ($attributesIndex === 'Z') {
+            if (substr($attributesIndex, strlen($attributesIndex) - 1, 1) === 'Z') {
                 $attributesIndex = 'AA';
             }
             
             $index = $attributesIndex;
 
             if (! array_key_exists($key, $attributesHeaders)) {
-                $attributesIndex = chr(ord(substr($attributesIndex, strlen($attributesIndex) - 1, 1)) + 1);
-                $attributesHeaders[$key] = $index;
+                if (strlen($attributesIndex) > 1) {
+                    $attributesIndex = substr($attributesIndex, 0, -1) . chr(ord(substr($attributesIndex, strlen($attributesIndex) - 1, 1)) + 1);
+                    $attributesHeaders[$key] = $index;
+                } else {
+                    $attributesIndex = chr(ord(substr($attributesIndex, strlen($attributesIndex) - 1, 1)) + 1);
+                    $attributesHeaders[$key] = $index;
+                }
             }
 
     

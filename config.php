@@ -6,7 +6,7 @@ define('LOGS', ROOT.'/logs');
 define('XLSX_PATH', ROOT.'/xlsx/');
 define('XML_PATH', ROOT.'/xml/');
 define('VIEWS_PATH', ROOT.'/views/');
-define('PROXY_ADDR', '54.39.23.81:8082');
+define('PROXY_ADDR', '167.114.65.232:3128');
 require_once(ROOT.'/vendor/autoload.php');   
 
 error_reporting(-1);
