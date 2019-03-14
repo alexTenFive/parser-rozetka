@@ -297,38 +297,49 @@ class RozetkaParser extends Parser {
         
         
                         if (isset($tr->childNodes[2]->childNodes) && 
-                            $tr->childNodes[2]->childNodes->length > 3) {
-                            if ($tr->childNodes[2]->childNodes[1]->childNodes->length > 3) {
-                                foreach ($tr->childNodes[2]->childNodes as $i => $nodeC) {
-                                    if (isset($nodeC->childNodes) && $nodeC->childNodes->length > 3) {
-                                        foreach ($nodeC->childNodes as $nodeCC) {
-                                            if (isset($nodeCC->tagName) && $nodeCC->tagName == 'span' && $nodeCC->attributes[0]->value == 'glossary-term') {
-                                                $valueTag .= ' / ' . trim($nodeCC->nodeValue);
-                                            }
-                                        }  
-                                    } else if (isset($nodeC->childNodes)) {
-                                        $valueTag .= ' / ' . trim($nodeC->childNodes[1]->nodeValue);
-                                    }
-                                }
-        
-                                $valueTag = substr($valueTag, 3);
-                            } else {
-                                foreach ($tr->childNodes[2]->childNodes as $i => $nodeC) {
-                                    if (isset($nodeC->tagName) && $nodeC->tagName == 'div') {
-                                        $valueTag .= ' / ' . trim($nodeC->nodeValue);
-                                    }
-                                }
-        
-                                $valueTag = substr($valueTag, 3);
+            $tr->childNodes[2]->childNodes->length > 3) {
+            if ($tr->childNodes[2]->childNodes[1]->childNodes->length > 3) {
+
+                foreach ($tr->childNodes[2]->childNodes as $i => $nodeC) {
+
+                    if (isset($nodeC->childNodes) && $nodeC->childNodes->length > 3) {
+
+                        foreach ($nodeC->childNodes as $nodeCC) {
+                            if (isset($nodeCC->tagName) && $nodeCC->tagName == 'span' && $nodeCC->attributes[0]->value == 'glossary-term') {
+                                
+                                $valueTag .= ' / ' . trim($nodeCC->nodeValue);
                             }
-                        } else {
-                            if (isset($tr->childNodes[2]->childNodes[1]->childNodes) &&
-                                $tr->childNodes[2]->childNodes[1]->childNodes->length > 2) {
-                                $valueTag = $tr->childNodes[2]->childNodes[1]->childNodes[1]->nodeValue;
-                            } else if (isset($tr->childNodes[2]->childNodes[1])) {
-                                $valueTag = $tr->childNodes[2]->childNodes[1]->nodeValue;
+                        }  
+                    } else if (isset($nodeC->childNodes)) {
+                        $valueTag .= ' / ' . trim($nodeC->childNodes[1]->nodeValue);
+                    }
+                }
+
+                $valueTag = substr($valueTag, 3);
+            } else {
+                foreach ($tr->childNodes[2]->childNodes as $i => $nodeC) {
+                    if (isset($nodeC->childNodes) && $nodeC->childNodes->length > 3) {
+                        foreach ($nodeC->childNodes as $nodeCC) {
+                            if (isset($nodeCC->tagName) && $nodeCC->tagName == 'span' && $nodeCC->attributes[0]->value == 'glossary-term') {
+                                
+                                $valueTag .= ' / ' . trim($nodeCC->nodeValue);
                             }
-                        }
+                        }  
+                    } else if (isset($nodeC->tagName) && $nodeC->tagName == 'div') {
+                        $valueTag .= ' / ' . trim($nodeC->nodeValue);
+                    }
+                }
+
+                $valueTag = substr($valueTag, 3);
+            }
+        } else {
+            if (isset($tr->childNodes[2]->childNodes[1]->childNodes) &&
+                $tr->childNodes[2]->childNodes[1]->childNodes->length > 2) {
+                $valueTag = $tr->childNodes[2]->childNodes[1]->childNodes[1]->nodeValue;
+            } else if (isset($tr->childNodes[2]->childNodes[1])) {
+                $valueTag = $tr->childNodes[2]->childNodes[1]->nodeValue;
+            }
+        }
         
                         list($key, $value) = [
                             StringHelper::enRussian($keyTag),
