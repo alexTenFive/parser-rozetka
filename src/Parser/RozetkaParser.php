@@ -268,22 +268,75 @@ class RozetkaParser extends Parser {
                 if ($queryProductTitle->length > 0)
                     $product['title'] = StringHelper::enRussian($queryProductTitle[0]->nodeValue);
 
-                $queryProductAttributes = $xpath->query("//table[@class='chars-t']", $q); 
+                $queryProductAttributes = $xpath->query("table[@class='chars-t']/tr[position()>1][not(@colspan)]", $q); 
     
                 /**
                  * Get product characteristics from table
                  */
-                /**
-                 * TODO: Шото надо делать
-                */
-                 if ($queryProductAttributes->length > 0) {
-                    foreach ($queryProductAttributes[0]->childNodes as $tr) {
+                if ($query->length > 0) {
+                    // file_put_contents(ROOT.'/table.html', StringHelper::enRussian($dom->saveHTML($query[0])));
+                    // var_dump(StringHelper::enRussian($dom->saveHTML($query[0])));
+        
+                    foreach ($query as $tr) {
+                        // echo '-----'.PHP_EOL;
+                        // foreach ($tr->childNodes as $i => $node) {
+                        //     var_dump(StringHelper::enRussian($node->nodeValue));
+                        //     if ($i > 0) {
+                        //         var_dump(StringHelper::enRussian($dom->saveHTML($node)));
+                        //     }
+                        // }
+                        // echo '-----'.PHP_EOL;
+                        $keyTag = '';
+                        $valueTag = '';
+                        if (isset($tr->childNodes[0]->childNodes[1]->childNodes[1]) &&
+                            $tr->childNodes[0]->childNodes[1]->childNodes[1]->tagName == 'span') {
+                            $keyTag = $tr->childNodes[0]->childNodes[1]->childNodes[1]->nodeValue;
+                        } else if (isset($tr->childNodes[0]->childNodes[1]->childNodes[0])) {
+                            $keyTag = $tr->childNodes[0]->childNodes[1]->childNodes[0]->nodeValue;
+                        }
+        
+        
+                        if (isset($tr->childNodes[2]->childNodes) && 
+                            $tr->childNodes[2]->childNodes->length > 3) {
+                            if ($tr->childNodes[2]->childNodes[1]->childNodes->length > 3) {
+                                foreach ($tr->childNodes[2]->childNodes as $i => $nodeC) {
+                                    if (isset($nodeC->childNodes) && $nodeC->childNodes->length > 3) {
+                                        foreach ($nodeC->childNodes as $nodeCC) {
+                                            if (isset($nodeCC->tagName) && $nodeCC->tagName == 'span' && $nodeCC->attributes[0]->value == 'glossary-term') {
+                                                $valueTag .= ' / ' . trim($nodeCC->nodeValue);
+                                            }
+                                        }  
+                                    } else if (isset($nodeC->childNodes)) {
+                                        $valueTag .= ' / ' . trim($nodeC->childNodes[1]->nodeValue);
+                                    }
+                                }
+        
+                                $valueTag = substr($valueTag, 3);
+                            } else {
+                                foreach ($tr->childNodes[2]->childNodes as $i => $nodeC) {
+                                    if (isset($nodeC->tagName) && $nodeC->tagName == 'div') {
+                                        $valueTag .= ' / ' . trim($nodeC->nodeValue);
+                                    }
+                                }
+        
+                                $valueTag = substr($valueTag, 3);
+                            }
+                        } else {
+                            if (isset($tr->childNodes[2]->childNodes[1]->childNodes) &&
+                                $tr->childNodes[2]->childNodes[1]->childNodes->length > 2) {
+                                $valueTag = $tr->childNodes[2]->childNodes[1]->childNodes[1]->nodeValue;
+                            } else if (isset($tr->childNodes[2]->childNodes[1])) {
+                                $valueTag = $tr->childNodes[2]->childNodes[1]->nodeValue;
+                            }
+                        }
+        
                         list($key, $value) = [
-                            StringHelper::enRussian($tr->childNodes[0]->nodeValue),
-                            StringHelper::enRussian($tr->childNodes[2]->nodeValue)
+                            StringHelper::enRussian($keyTag),
+                            StringHelper::enRussian($valueTag)
                         ];
-                    
-                        $product['attributes'][$key] = $value;
+                        
+                        if (! empty($key) && ! empty($value))
+                            $product['attributes'][$key] = $value;
                     }
                 }
             }
