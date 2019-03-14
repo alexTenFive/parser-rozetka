@@ -1,7 +1,11 @@
 <?php include VIEWS_PATH . 'layout.php'; ?>
-<div class="container">
+<div class="container" style="max-width: 95%">
     <div class="row">
-    <div class="col-md-6 offset-md-3">
+    <div class="col-md-3">
+        <a href="/parse" class="btn btn-info float-left mb-1 mt-1">Парсить</a>
+        <a href="/convert" class="btn btn-info">Конвертировать Excel в YML</a>
+    </div>
+    <div class="col-md-6">
         <form action="write" method="POST">
         <div class="form-group">
             <label for="exampleFormControlSelect1">Выберите категорию товаров для записи:</label>

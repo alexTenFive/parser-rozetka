@@ -4,24 +4,30 @@ use App\Converters\{Converter, RozetkaConverter};
 
 $xlsxDir = opendir(XLSX_PATH);
 
+$filenames = [];
+
+foreach (glob(XLSX_PATH . '*.xlsx') as $filename) {
+        $filenames[] = pathinfo($filename)['basename'];
+}
+
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $filenames = [];
-
-    foreach (glob(XLSX_PATH . '*.xlsx') as $filename) {
-            $filenames[] = pathinfo($filename)['basename'];
-    }
-
     include VIEWS_PATH . 'converter.php';
     exit;
 }
 
 if (isset($_FILES['filename_u'])) {
     $filename_u = $_FILES['filename_u'];
+    $error = "";
+
     if (pathinfo($filename_u['name'])['extension'] === 'xlsx') {
         move_uploaded_file( $filename_u['tmp_name'], XLSX_PATH . $filename_u['name']);
+    } else {
+        $error = "Файл должен быть формата *.xlsx";
     }
 
-    header('Location: /convert');
+    include VIEWS_PATH . 'converter.php';
+    exit;
 }
 
 $filename = isset($_POST['filename']) ? $_POST['filename'] : '';

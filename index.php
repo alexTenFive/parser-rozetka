@@ -10,4 +10,6 @@ if ($uri !== '') {
     }
     require_once $uri . '.php';
     exit;
+} else {
+    include VIEWS_PATH . '/index.php';
 }
