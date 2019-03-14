@@ -22,7 +22,7 @@ if ((php_sapi_name() === 'cli') && $argc > 1) {
     if (preg_match("((?:https?:|www\.)[^\s]+)", $argv[1])) {
         $parser = new \App\Parser\RozetkaParser($argv[1]);
     
-        $products = $parser->parse();
+        $products = $parser->parse($argv[1], 3);
     }
 }
 

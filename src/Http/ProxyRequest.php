@@ -21,7 +21,7 @@ class ProxyRequest extends Request
     public function makeRequest(string $url)
     {
         $this->handler = $this->_create_handle();
-        $this->logger->info("Proxy setting: " . $this->proxy);
+        //$this->logger->info("Proxy setting: " . $this->proxy);
         $this->setProxy('CURLPROXY_HTTPS', $this->proxy);
 
         $this->lastErrorCode = null;

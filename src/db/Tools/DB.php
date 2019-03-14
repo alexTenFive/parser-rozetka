@@ -23,6 +23,10 @@ class DB
 
         try {
             $this->pdo = new PDO($dsn, static::$db_params['db_username'], static::$db_params['db_password'], $options);
+        
+            $this->pdo->query("SET session wait_timeout=28800", 0);
+            // UPDATE - this is also needed
+            $this->pdo->query("SET session interactive_timeout=28800", 0);
         } catch (\PDOException $e) {
             include VIEWS_PATH . 'errors/error.php';
             exit;
@@ -34,7 +38,7 @@ class DB
         if (empty(static::$instance)) {
             static::$instance = (new static())->pdo;
         }
-        
+
         return static::$instance;
     }
 }
