@@ -186,10 +186,8 @@ progress::-moz-progress-bar {
         </div>
 
     </div>
-    <?php if ($status): ?>
     <div class="row">
     <div class="col-md-6 offset-md-3">
-    <p>Парсинг в процессе...</p>
         <p>Количество скачаных продуктов: <span id="count"></span></p>
         <div class="block">
         <progress min="0" max="100" value="0">
@@ -238,5 +236,4 @@ var requests = 0;
     xhr.send();
 })();
 </script>
-<?php endif; ?>
 </div>

@@ -4,7 +4,6 @@ require_once __DIR__.'/config.php';
 
 if (isset ($_SERVER['REQUEST_METHOD'])) {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $status = isset($params) && array_key_exists('s', $params) ? $params['s'] : 0;
         include VIEWS_PATH . 'parser.php';
         exit;
     }
@@ -14,7 +13,7 @@ if (isset ($_SERVER['REQUEST_METHOD'])) {
         preg_match_all("((?:https?:|www\.)[^\s]+)", $data, $links); 
 
         execInBackground("php " . __FILE__ . " " . $links[0][0]);
-        header('Location: /parse?s=1');
+        header('Location: /parse');
         exit;
     }
 }

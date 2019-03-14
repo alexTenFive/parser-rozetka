@@ -268,7 +268,7 @@ class RozetkaParser extends Parser {
                 if ($queryProductTitle->length > 0)
                     $product['title'] = StringHelper::enRussian($queryProductTitle[0]->nodeValue);
 
-                $queryProductAttributes = $xpath->query("table[@class='chars-t']/tr[position()>1][not(@colspan)]", $q); 
+                $query = $xpath->query("table[@class='chars-t']/tr[position()>1][not(@colspan)]", $q); 
     
                 /**
                  * Get product characteristics from table
