@@ -1,4 +1,4 @@
-<?php include VIEWS_PATH . 'layout.php'; ?>
+<?php include VIEWS_PATH . 'header.php'; ?>
 <style>
 progress:not(value) {
     /* Add your styles here. As part of this walkthrough we will focus only on determinate progress bars. */
@@ -173,12 +173,18 @@ progress::-moz-progress-bar {
         <a href="/convert" class="btn btn-info">Конвертировать Excel в YML</a>
     </div>
     <div class="col-md-6">
-        <form action="parse" method="POST">
+        <form action="parse" method="POST" onsubmit="return confirm('Вы действительно хотите начать парсинг?');">
             <div class="form-group">
                 <label for="exampleFormControlFile1">Вставьте ссылку на категорию:</label>
-                <input name="links" class="form-control" id="exampleFormControlFile1">
+                <input name="links" class="form-control" value="<?php if (!empty($currentLink)) echo $currentLink; else echo ''; ?>" id="exampleFormControlFile1">
                 <input type="hidden" name="XDEBUG_PROFILE" value="1">
             </div>
+            <?php if ($currentPage > 1): ?>
+                <div class="form-check float-right mb-1">
+                    <input type="checkbox" name="continue" checked class="form-check-input" id="Continue">
+                    <label class="form-check-label" for="Continue">Продолжить?</label>
+                </div>
+                <?php endif; ?>
             <div class="form-group">
             <input type="submit" value="Парсить" class="form-control btn btn-dark">
             </div>
@@ -237,3 +243,4 @@ var requests = 0;
 })();
 </script>
 </div>
+<?php include VIEWS_PATH . 'footer.php'; ?>

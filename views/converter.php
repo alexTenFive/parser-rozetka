@@ -1,4 +1,4 @@
-<?php include VIEWS_PATH . 'layout.php'; ?>
+<?php include VIEWS_PATH . 'header.php'; ?>
 <div class="container" style="max-width:95%">
     <div class="row">
         <div class="col-md-2">
@@ -31,3 +31,4 @@
         </div>
     </div>
 </div>
+<?php include VIEWS_PATH . 'footer.php'; ?>

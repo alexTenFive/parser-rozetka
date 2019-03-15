@@ -83,13 +83,16 @@ class RozetkaParser extends Parser {
 
             $this->logger->info('Category pages number succesfully computed. Pages count: ' . $this->pagesCount);
             
-            DBQuery::raw("TRUNCATE table config;");
-            DBQuery::insert('config', [
-                'pagesCount'    => $this->pagesCount - ($this->currentPage - 1),
-                'productsCount' => 0,
-                'complete'     => 0,
-            ]);
-
+            if (! (bool)$startFromPage) {
+                DBQuery::raw("TRUNCATE table config;");
+                DBQuery::insert('config', [
+                    'pagesCount'    => $this->pagesCount,
+                    'productsCount' => 0,
+                    'complete'      => 0,
+                    'currentPage'   => 1,
+                    'categoryLink'  => $this->categoryUrl
+                ]);
+            }
         }
 
         /**
@@ -167,11 +170,10 @@ class RozetkaParser extends Parser {
                 $this->logger->info('Product data succesfully parsed');
                 
                 $this->insertProductData($product);
-                
-                DBQuery::raw("UPDATE config SET productsCount = productsCount+1");
-
+    
                 unset($product);
             }
+            DBQuery::raw("UPDATE config SET currentPage = currentPage+1");
         }
         DBQuery::raw("UPDATE config SET complete = 1");
         $this->logger->info('Parse category ended');
@@ -515,6 +517,8 @@ class RozetkaParser extends Parser {
 
         if ((bool)$product_id) {
             $this->logger->info('Product "' . $product['title'] . '" succesfully inserted. ID: ' . $product_id);                    
+            DBQuery::raw("UPDATE config SET productsCount = productsCount+1");
+            
         }
 
         if ($product_id == 0) {

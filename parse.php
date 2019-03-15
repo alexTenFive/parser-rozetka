@@ -1,6 +1,11 @@
 <?php
 
 require_once __DIR__.'/config.php';
+use App\db\Tools\DBQuery;
+
+$parserConfig = DBQuery::select("config")[0];
+list($currentPage, $currentLink) = [$parserConfig['currentPage'], $parserConfig['categoryLink']];
+
 
 if (isset ($_SERVER['REQUEST_METHOD'])) {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -21,8 +26,11 @@ if (isset ($_SERVER['REQUEST_METHOD'])) {
 if ((php_sapi_name() === 'cli') && $argc > 1) {
     if (preg_match("((?:https?:|www\.)[^\s]+)", $argv[1])) {
         $parser = new \App\Parser\RozetkaParser($argv[1]);
-    
-        $products = $parser->parse($argv[1], 3);
+        
+        if ($currentPage > 1)
+            $products = $parser->parse($argv[1], $currentPage);
+        else
+            $products = $parser->parse();
     }
 }
 
