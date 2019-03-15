@@ -28,7 +28,11 @@
                     <input type="submit" class="form-control btn btn-dark" value="Конвертировать">        
                 </div>
             </form>
+            <form action="/delete-files" method="POST" onsubmit="return confirm('Действительно очистить хранилище файлов?')">
+                <button type="submit" class="btn btn-link float-right">Очистить хранилище файлов</a>
+            </form>
         </div>
     </div>
 </div>
+
 <?php include VIEWS_PATH . 'footer.php'; ?>
